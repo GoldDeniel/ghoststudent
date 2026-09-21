@@ -2,20 +2,22 @@
   "name": "ghoststudent",
   "displayName": "Ghost Student",
   "description": "Real-time ghost code broadcasting for teachers and students.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "golddeniel",
   "repository": {
     "type": "git",
     "url": "https://github.com/GoldDeniel/ghoststudent"
   },
-  "icon": "icon.jpg",
+  "icon": "icon.png",
   "engines": {
-    "vscode": "^1.138.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -30,6 +32,10 @@
       {
         "command": "ghoststudent.toggle",
         "title": "Ghost Student: Toggle Broadcasting"
+      },
+      {
+        "command": "ghoststudent.menu",
+        "title": "Ghost Student: Menu"
       }
     ],
     "configuration": {
@@ -71,7 +77,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.138.0",
+    "@types/vscode": "^1.80.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "typescript-eslint": "^8.61.1",
