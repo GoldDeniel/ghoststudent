@@ -12,10 +12,13 @@ export class Student {
     });
     if (ip === undefined) return;
     const targetIp = ip === "" ? "127.0.0.1" : ip;
-
-    this.client = net.createConnection({ port: 8765, host: targetIp }, () => {
-      vscode.window.showInformationMessage("Connected to Teacher!");
-    });
+    const targetPort = targetIp.split(":")[1] || "8765";
+    this.client = net.createConnection(
+      { port: parseInt(targetPort), host: targetIp.split(":")[0] },
+      () => {
+        vscode.window.showInformationMessage("Connected to Teacher!");
+      },
+    );
 
     let buffer = "";
     this.client.on("data", async (data) => {

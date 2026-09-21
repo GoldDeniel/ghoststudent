@@ -1,8 +1,14 @@
 {
   "name": "ghoststudent",
-  "displayName": "GhostStudent",
-  "description": "An extension for teachers and students. ",
+  "displayName": "Ghost Student",
+  "description": "Real-time ghost code broadcasting for teachers and students.",
   "version": "0.0.1",
+  "publisher": "golddeniel",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GoldDeniel/ghoststudent"
+  },
+  "icon": "icon.jpg",
   "engines": {
     "vscode": "^1.138.0"
   },

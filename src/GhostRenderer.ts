@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
+import { getLanguageRule } from "./LanguageRules";
 
 export class GhostRenderer {
-  // THE MAGIC FIX: "white-space: pre;" forces VS Code to respect consecutive spaces and \n newlines!
   private ghostStyle = vscode.window.createTextEditorDecorationType({
     after: {
       color: "#888888",
@@ -13,7 +13,6 @@ export class GhostRenderer {
   private errorStyle = vscode.window.createTextEditorDecorationType({
     backgroundColor: "rgba(255, 0, 0, 0.3)",
     color: "#ffaaaa",
-    borderRadius: "5px",
   });
 
   private latestTeacherLines: string[] = [];
@@ -31,10 +30,18 @@ export class GhostRenderer {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
+    // 1. Get User Settings
     const config = vscode.workspace.getConfiguration("ghoststudent");
-    const smartMatching = config.get<boolean>("smartMatching");
+    const userWantsSmartMatching = config.get<boolean>("smartMatching");
     const errorMode = config.get<string>("errorDisplayMode");
     const strictWhitespace = config.get<boolean>("strictWhitespace");
+
+    // 2. Load Modular Rules based on the current file's language!
+    const langId = editor.document.languageId;
+    const langRule = getLanguageRule(langId);
+
+    // Smart matching is ON if both the user setting is true AND the language supports it
+    const smartMatching = userWantsSmartMatching && langRule.useSmartMatching;
 
     const tabSize = Number(editor.options.tabSize) || 4;
     const formatText = (text: string) =>
@@ -44,24 +51,23 @@ export class GhostRenderer {
     const ghostDecorations: vscode.DecorationOptions[] = [];
     const errorDecorations: vscode.DecorationOptions[] = [];
 
-    // Array to hold lines the student hasn't reached yet
     let futureLines: string[] = [];
 
     for (let i = 0; i < this.latestTeacherLines.length; i++) {
       const tText = this.latestTeacherLines[i];
 
       if (i >= studentDoc.lineCount) {
-        // Push the formatted text exactly as-is (preserves your leading tabs/spaces!)
         futureLines.push(formatText(tText));
         continue;
       }
 
       const sText = studentDoc.lineAt(i).text;
-
       let s = 0;
       let t = 0;
 
-      // 1. PREFIX SCAN
+      // ==========================================
+      // PREFIX SCAN
+      // ==========================================
       while (s < sText.length && t < tText.length) {
         if (!strictWhitespace) {
           const sIsWs = sText[s] === " " || sText[s] === "\t";
@@ -82,7 +88,9 @@ export class GhostRenderer {
         }
       }
 
-      // 2. SUBSEQUENCE SCAN (Smart Matching)
+      // ==========================================
+      // SUBSEQUENCE SCAN (Smart Matching)
+      // ==========================================
       let isSubsequenceMatch = false;
       let chunks: { index: number; text: string }[] = [];
 
@@ -96,9 +104,8 @@ export class GhostRenderer {
             while (
               currS < sText.length &&
               (sText[currS] === " " || sText[currS] === "\t")
-            ) {
+            )
               currS++;
-            }
           }
           if (currS >= sText.length) break;
 
@@ -117,17 +124,17 @@ export class GhostRenderer {
 
         if (currS === sText.length) {
           isSubsequenceMatch = true;
-          if (currT < tText.length) {
-            currentChunk += tText.substring(currT);
-          }
-          if (currentChunk !== "") {
+          if (currT < tText.length) currentChunk += tText.substring(currT);
+          if (currentChunk !== "")
             chunks.push({ index: currS, text: currentChunk });
-          }
         }
       }
 
-      // 3. RENDER LOGIC
+      // ==========================================
+      // RENDER LOGIC
+      // ==========================================
       if (s === sText.length || isSubsequenceMatch) {
+        // MATCH
         if (s === sText.length) {
           const remaining = tText.substring(t);
           if (remaining.length > 0) {
@@ -145,18 +152,20 @@ export class GhostRenderer {
           }
         }
       } else {
+        // TYPO
         errorDecorations.push({
           range: new vscode.Range(i, s, i, sText.length),
         });
 
         if (errorMode === "Show Expected Comment") {
           const correctRemaining = tText.substring(t);
+          // Use the modular language rule to format the comment!
+          const formattedComment = langRule.formatExpected(correctRemaining);
+
           ghostDecorations.push({
             range: new vscode.Range(i, sText.length, i, sText.length),
             renderOptions: {
-              after: {
-                contentText: formatText(`  // Expected: ${correctRemaining}`),
-              },
+              after: { contentText: formatText(formattedComment) },
             },
           });
         } else {
@@ -176,17 +185,15 @@ export class GhostRenderer {
       const lastIdx = studentDoc.lineCount - 1;
       const lastLen = studentDoc.lineAt(lastIdx).text.length;
 
-      // Combine them with real newlines!
       let content = futureLines.join("\n");
+      if (lastLen > 0) content = "\n" + content;
 
-      // If the student's final line has text, drop the ghost text to the next line down
-      if (lastLen > 0) {
-        content = "\n" + content;
-      }
+      // Use the modular language rule to format the comment block!
+      const finalContent = langRule.formatFutureLines(content);
 
       ghostDecorations.push({
         range: new vscode.Range(lastIdx, lastLen, lastIdx, lastLen),
-        renderOptions: { after: { contentText: content } },
+        renderOptions: { after: { contentText: finalContent } },
       });
     }
 
