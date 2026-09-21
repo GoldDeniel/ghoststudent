@@ -25,7 +25,36 @@
         "command": "ghoststudent.toggle",
         "title": "Ghost Student: Toggle Broadcasting"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Ghost Student",
+      "properties": {
+        "ghoststudent.autoCreateLines": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically insert empty lines in the student's file if the teacher creates new lines."
+        },
+        "ghoststudent.smartMatching": {
+          "type": "boolean",
+          "default": true,
+          "description": "Intelligently handle auto-closed tags and brackets (e.g., injects ghost text inside <title></title>)."
+        },
+        "ghoststudent.errorDisplayMode": {
+          "type": "string",
+          "enum": [
+            "Show Expected Comment",
+            "Continue Ghost Text"
+          ],
+          "default": "Continue Ghost Text",
+          "description": "How to display the teacher's code when the student makes a typo."
+        },
+        "ghoststudent.strictWhitespace": {
+          "type": "boolean",
+          "default": false,
+          "description": "If ON, tabs and spaces must match exactly. If OFF, ghost text snaps to the user's code and ignores indentation differences."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

@@ -4,7 +4,7 @@ import * as net from "net";
 export class Host {
   private server?: net.Server;
   private clients: net.Socket[] = [];
-  public isBroadcasting = true; // The ON/OFF Switch
+  public isBroadcasting = true;
 
   public start() {
     if (this.server) {
@@ -15,6 +15,10 @@ export class Host {
     this.server = net.createServer((socket) => {
       this.clients.push(socket);
       vscode.window.showInformationMessage("A student connected!");
+
+      // Instantly send the full document to the new student
+      this.broadcast();
+
       socket.on(
         "end",
         () => (this.clients = this.clients.filter((c) => c !== socket)),
@@ -29,9 +33,8 @@ export class Host {
       vscode.window.showInformationMessage("Ghost Host started on Port 8765");
     });
 
-    // Listen for typing and cursor movement
+    // Listen for ANY typing in the whole document
     vscode.workspace.onDidChangeTextDocument(() => this.broadcast());
-    vscode.window.onDidChangeTextEditorSelection(() => this.broadcast());
   }
 
   public toggle() {
@@ -39,19 +42,20 @@ export class Host {
     vscode.window.showInformationMessage(
       `Ghost Broadcasting is now ${this.isBroadcasting ? "ON" : "OFF"}`,
     );
+    this.broadcast();
   }
 
   private broadcast() {
-    // If turned off, or no students, do nothing
     if (!this.isBroadcasting || this.clients.length === 0) return;
 
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    const line = editor.selection.active.line;
-    const text = editor.document.lineAt(line).text;
+    // Grab ALL lines in the document
+    const lines = editor.document.getText().split("\n");
 
-    const payload = JSON.stringify({ line, text }) + "\n";
+    // Send the array of lines to the students
+    const payload = JSON.stringify({ lines }) + "\n";
     this.clients.forEach((socket) => {
       try {
         socket.write(payload);
