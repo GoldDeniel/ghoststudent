@@ -14,8 +14,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "ghoststudent.helloWorld",
-        "title": "Hello World"
+        "command": "ghoststudent.connect",
+        "title": "Ghost Student: Connect"
+      },
+      {
+        "command": "ghoststudent.host",
+        "title": "Ghost Student: Host"
+      },
+      {
+        "command": "ghoststudent.toggle",
+        "title": "Ghost Student: Toggle Broadcasting"
       }
     ]
   },
