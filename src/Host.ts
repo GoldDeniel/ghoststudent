@@ -1,9 +1,11 @@
 import * as vscode from "vscode";
-import * as net from "net";
+import { WebSocketServer, WebSocket } from "ws";
+import * as http from "http";
 
 export class Host {
-  private server?: net.Server;
-  private clients: net.Socket[] = [];
+  private server?: http.Server;
+  private wss?: WebSocketServer;
+  private clients: Set<WebSocket> = new Set();
   public isBroadcasting = true;
 
   public start() {
@@ -12,28 +14,27 @@ export class Host {
       return;
     }
 
-    this.server = net.createServer((socket) => {
-      this.clients.push(socket);
+    // Create an HTTP server and attach the WebSocket server to it
+    this.server = http.createServer();
+    this.wss = new WebSocketServer({ server: this.server });
+
+    this.wss.on("connection", (ws) => {
+      this.clients.add(ws);
       vscode.window.showInformationMessage("A student connected!");
 
       // Instantly send the full document to the new student
       this.broadcast();
 
-      socket.on(
-        "end",
-        () => (this.clients = this.clients.filter((c) => c !== socket)),
-      );
-      socket.on(
-        "error",
-        () => (this.clients = this.clients.filter((c) => c !== socket)),
-      );
+      ws.on("close", () => this.clients.delete(ws));
+      ws.on("error", () => this.clients.delete(ws));
     });
 
     this.server.listen(8765, () => {
-      vscode.window.showInformationMessage("Ghost Host started on Port 8765");
+      vscode.window.showInformationMessage(
+        "Ghost Host started on Port 8765 (WebSocket)",
+      );
     });
 
-    // Listen for ANY typing in the whole document
     vscode.workspace.onDidChangeTextDocument(() => this.broadcast());
   }
 
@@ -46,24 +47,24 @@ export class Host {
   }
 
   private broadcast() {
-    if (!this.isBroadcasting || this.clients.length === 0) return;
+    if (!this.isBroadcasting || this.clients.size === 0) return;
 
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
 
-    // Grab ALL lines in the document
     const lines = editor.document.getText().split("\n");
+    const payload = JSON.stringify({ lines });
 
-    // Send the array of lines to the students
-    const payload = JSON.stringify({ lines }) + "\n";
-    this.clients.forEach((socket) => {
-      try {
-        socket.write(payload);
-      } catch (e) {}
-    });
+    // WebSockets automatically frame messages, so we don't need the '\n' at the end!
+    for (const client of this.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    }
   }
 
   public stop() {
+    if (this.wss) this.wss.close();
     if (this.server) this.server.close();
   }
 }
