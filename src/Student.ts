@@ -8,28 +8,36 @@ export class Student {
 
   public async connect() {
     const address = await vscode.window.showInputBox({
-      prompt: "Enter Teacher's URL or IP",
-      placeHolder: "e.g., ghoststudent.deniels-server.net or 192.168.1.50",
+      prompt: "Enter Teacher's URL, IP, or PC Name",
+      placeHolder:
+        "e.g., ghoststudent.deniels-server.net, 192.168.1.50, or DESKTOP-ABC",
     });
 
     if (address === undefined) return;
 
-    // Smart URL formatting
     let targetUrl = address.trim();
+
     if (targetUrl === "") {
       targetUrl = "ws://127.0.0.1:8765";
     } else if (
       !targetUrl.startsWith("ws://") &&
       !targetUrl.startsWith("wss://")
     ) {
-      if (targetUrl.startsWith("https://")) {
-        targetUrl = targetUrl.replace("https://", "wss://");
-      } else if (targetUrl.startsWith("http://")) {
-        targetUrl = targetUrl.replace("http://", "ws://");
+      // Strip http/https if they added it out of habit
+      targetUrl = targetUrl.replace(/^http:\/\//i, "");
+      targetUrl = targetUrl.replace(/^https:\/\//i, "");
+
+      const isIP = /^[0-9.]+$/.test(targetUrl);
+      const isLocalHost = targetUrl.toLowerCase() === "localhost";
+      const isWindowsPCName = !targetUrl.includes("."); // No dots = local PC name
+      const isLocalDomain = targetUrl.endsWith(".local");
+
+      if (isIP || isLocalHost || isWindowsPCName || isLocalDomain) {
+        // LOCAL NETWORK: Use raw WebSockets and add our port
+        targetUrl = `ws://${targetUrl}:8765`;
       } else {
-        // If they just typed a raw IP or domain
-        const isIP = /^[0-9.]+$/.test(targetUrl);
-        targetUrl = isIP ? `ws://${targetUrl}:8765` : `wss://${targetUrl}`;
+        // PUBLIC INTERNET: Use secure WebSockets (Nginx handles the port)
+        targetUrl = `wss://${targetUrl}`;
       }
     }
 
@@ -41,7 +49,6 @@ export class Student {
       vscode.window.showInformationMessage(`Connected to Teacher!`);
     });
 
-    // WebSockets handle the buffer for us, so the code is much cleaner!
     this.ws.on("message", async (data) => {
       try {
         const parsed = JSON.parse(data.toString());
