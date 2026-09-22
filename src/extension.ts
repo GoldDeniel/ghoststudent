@@ -6,7 +6,6 @@ export function activate(context: vscode.ExtensionContext) {
   const host = new Host();
   const student = new Student();
 
-  // 1. Register Core Commands
   let hostCmd = vscode.commands.registerCommand("ghoststudent.host", () =>
     host.start(),
   );
@@ -17,59 +16,91 @@ export function activate(context: vscode.ExtensionContext) {
     student.connect(),
   );
 
-  // 2. Create the Status Bar Button (Bottom Right)
   let statusBarBtn = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100,
   );
-  // $(radio-tower) uses a built-in VS Code icon!
   statusBarBtn.text = "$(radio-tower) Ghost Student";
   statusBarBtn.tooltip = "Click to open Ghost Student Menu";
   statusBarBtn.command = "ghoststudent.menu";
   statusBarBtn.show();
 
-  // 3. Create the Menu Command (When the button is clicked)
+  // Helper function to update the button icon based on state
+  const updateStatusBar = () => {
+    if (host.isServerRunning) {
+      statusBarBtn.text = host.isBroadcasting
+        ? "$(broadcast) Hosting Ghost"
+        : "$(mute) Ghost Paused";
+    } else if (student.isConnected) {
+      statusBarBtn.text = student.isListening
+        ? "$(check) Ghost Connected"
+        : "$(eye-closed) Ghost Hidden";
+    } else {
+      statusBarBtn.text = "$(radio-tower) Ghost Student";
+    }
+  };
+
   let menuCmd = vscode.commands.registerCommand(
     "ghoststudent.menu",
     async () => {
-      // Create the options for the dropdown
-      const options = [
-        { label: "$(play) Start Hosting", description: "Teacher" },
-        { label: "$(plug) Connect to Teacher", description: "Student" },
-        {
+      // DYNAMIC MENU GENERATION
+      const options: vscode.QuickPickItem[] = [];
+
+      if (!host.isServerRunning && !student.isConnected) {
+        // Idle State (Can choose to host OR connect)
+        options.push({
+          label: "$(play) Start Hosting",
+          description: "Become the Teacher",
+        });
+        options.push({
+          label: "$(plug) Connect to Teacher",
+          description: "Become a Student",
+        });
+      } else if (host.isServerRunning) {
+        // Teacher State (Can toggle broadcast or stop server)
+        options.push({
           label: host.isBroadcasting
             ? "$(mute) Pause Broadcasting"
             : "$(unmute) Resume Broadcasting",
           description: "Teacher Toggle",
-        },
-      ];
+        });
+        options.push({
+          label: "$(stop) Stop Hosting",
+          description: "Close the server and disconnect students",
+        });
+      } else if (student.isConnected) {
+        // Student State (Can hide ghost text or disconnect)
+        options.push({
+          label: student.isListening
+            ? "$(eye-closed) Hide Ghost Text"
+            : "$(eye) Show Ghost Text",
+          description: "Student Toggle",
+        });
+        options.push({
+          label: "$(debug-disconnect) Disconnect",
+          description: "Leave the session",
+        });
+      }
 
-      // Show the menu to the user
       const choice = await vscode.window.showQuickPick(options, {
         placeHolder: "Ghost Student: What would you like to do?",
       });
 
-      // Execute based on what they clicked
       if (choice) {
-        if (choice.label.includes("Start Hosting")) {
-          host.start();
-          statusBarBtn.text = "$(broadcast) Hosting Ghost"; // Change icon when hosting
-        } else if (choice.label.includes("Connect")) {
-          student.connect();
-          statusBarBtn.text = "$(check) Ghost Connected"; // Change icon when connected
-        } else if (choice.label.includes("Broadcasting")) {
-          host.toggle();
-          if (!host.isBroadcasting) {
-            statusBarBtn.text = "$(mute) Ghost Paused";
-          } else {
-            statusBarBtn.text = "$(broadcast) Hosting Ghost";
-          }
-        }
+        // Handle actions based on the label text
+        if (choice.label.includes("Start Hosting")) host.start();
+        else if (choice.label.includes("Stop Hosting")) host.stop();
+        else if (choice.label.includes("Connect")) student.connect();
+        else if (choice.label.includes("Disconnect")) student.stop();
+        else if (choice.label.includes("Broadcasting")) host.toggle();
+        else if (choice.label.includes("Ghost Text")) student.toggle();
+
+        // Refresh the icon on the bottom bar immediately
+        updateStatusBar();
       }
     },
   );
 
-  // Register everything so it cleans up when VS Code closes
   context.subscriptions.push(
     hostCmd,
     toggleCmd,

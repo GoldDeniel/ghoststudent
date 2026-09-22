@@ -26,6 +26,14 @@ export class GhostRenderer {
     if (this.latestTeacherLines.length > 0) this.applyDecorations();
   }
 
+  public clear() {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+      editor.setDecorations(this.ghostStyle, []);
+      editor.setDecorations(this.errorStyle, []);
+    }
+  }
+
   private applyDecorations() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;

@@ -7,6 +7,7 @@ export class Host {
   private wss?: WebSocketServer;
   private clients: Set<WebSocket> = new Set();
   public isBroadcasting = true;
+  public isServerRunning = false; // Add this!
 
   public start() {
     if (this.server) {
@@ -14,15 +15,12 @@ export class Host {
       return;
     }
 
-    // Create an HTTP server and attach the WebSocket server to it
     this.server = http.createServer();
     this.wss = new WebSocketServer({ server: this.server });
 
     this.wss.on("connection", (ws) => {
       this.clients.add(ws);
       vscode.window.showInformationMessage("A student connected!");
-
-      // Instantly send the full document to the new student
       this.broadcast();
 
       ws.on("close", () => this.clients.delete(ws));
@@ -30,6 +28,7 @@ export class Host {
     });
 
     this.server.listen(8765, () => {
+      this.isServerRunning = true; // Mark as running
       vscode.window.showInformationMessage(
         "Ghost Host started on Port 8765 (WebSocket)",
       );
@@ -48,14 +47,11 @@ export class Host {
 
   private broadcast() {
     if (!this.isBroadcasting || this.clients.size === 0) return;
-
     const editor = vscode.window.activeTextEditor;
     if (!editor) return;
-
     const lines = editor.document.getText().split("\n");
     const payload = JSON.stringify({ lines });
 
-    // WebSockets automatically frame messages, so we don't need the '\n' at the end!
     for (const client of this.clients) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(payload);
@@ -66,5 +62,9 @@ export class Host {
   public stop() {
     if (this.wss) this.wss.close();
     if (this.server) this.server.close();
+    this.server = undefined;
+    this.wss = undefined;
+    this.isServerRunning = false; // Mark as stopped
+    vscode.window.showInformationMessage("Ghost Hosting Stopped.");
   }
 }
